@@ -1,4 +1,4 @@
-% 2-DOF Robot Arm Simulation with PD Control
+% 2-DOF Robot Arm Simulation with Adaptive PD Control
 % Robotics Assignment 1
 
 clear all;
@@ -18,8 +18,13 @@ q0 = [0; 0];
 dq0 = [0; 0];
 initial_state = [q0; dq0];
 
-% Controller gains
+% Controller initial gains
 k1 = 1; k2 = 1;
+
+% Adaptive gain parameters
+k1_max = 10; k2_max = 10;  % maximum values of gains
+k1_min = 0.1; k2_min = 0.1;  % minimum values of gains
+alpha = 0.1;  % rate of adaptation
 
 % Case a: Set-point regulation
 qd_a = @(t) [pi/3; pi/4];
@@ -34,7 +39,7 @@ qd_func = qd_a;
 dqd_func = dqd_a;
 
 % Define the dynamics function
-dynamics = @(t, state) robot_dynamics(t, state, m1, m2, a1, a2, g, k1, k2, qd_func, dqd_func);
+dynamics = @(t, state) robot_dynamics_adaptive(t, state, m1, m2, a1, a2, g, k1, k2, qd_func, dqd_func, alpha, k1_max, k1_min, k2_max, k2_min);
 
 % Simulate the system
 [t, state] = ode45(dynamics, time_span, initial_state);
@@ -57,7 +62,7 @@ for i = 1:length(t)
     de = state(i, 3:4)' - dqd;
     
     errors(i, :) = e';
-    control_inputs(i, :) = (-k1 * e - k2 * de)';
+    control_inputs(i, :) = (-k1 * e - k2 * de)';  % Assuming constant gains for visualization
 end
 
 % Plotting
@@ -106,8 +111,8 @@ for i = 1:10:length(t)
     pause(0.0000000000000001);
 end
 
-% Helper function to define the robot dynamics
-function dstate = robot_dynamics(t, state, m1, m2, a1, a2, g, k1, k2, qd_func, dqd_func)
+% Helper function to define the robot dynamics with adaptive gains
+function dstate = robot_dynamics_adaptive(t, state, m1, m2, a1, a2, g, k1, k2, qd_func, dqd_func, alpha, k1_max, k1_min, k2_max, k2_min)
     q1 = state(1);
     q2 = state(2);
     dq1 = state(3);
@@ -133,7 +138,11 @@ function dstate = robot_dynamics(t, state, m1, m2, a1, a2, g, k1, k2, qd_func, d
     e = [q1; q2] - qd;
     de = [dq1; dq2] - dqd;
     
-    % Control input (PD control)
+    % Adapt k1 and k2 based on the error magnitude
+    k1 = max(k1_min, min(k1_max, k1 * (1 + alpha * norm(e))));
+    k2 = max(k2_min, min(k2_max, k2 * (1 + alpha * norm(de))));
+    
+    % Control input (adaptive PD control)
     tau = -k1 * e - k2 * de;
     
     % Compute accelerations
