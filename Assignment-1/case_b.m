@@ -1,5 +1,6 @@
-% 2-DOF Robot Arm Simulation with 2D Visualization - Sinusoidal Tracking (Case B)
-clear all; close all; clc;
+% 2-DOF Robot Arm Simulation with 2D Visualization
+clear;
+clc;
 
 % System Parameters
 m1 = 1; m2 = 1;  % masses
@@ -48,8 +49,8 @@ end
 
 % Desired trajectory generator
 function [qd, qd_dot] = desired_trajectory(t)
-    qd = [pi/4*sin(t); pi/5*cos(t)];
-    qd_dot = [pi/4*cos(t); -pi/5*sin(t)];
+    qd = [pi/3; pi/4];
+    qd_dot = [0; 0];
 end
 
 % Adaptive PD Controller
@@ -186,5 +187,80 @@ end
 % Calculate and display tracking errors
 mean_error_1 = mean(abs(theta1 - qd_traj(:,1)));
 mean_error_2 = mean(abs(theta2 - qd_traj(:,2)));
-fprintf('Mean tracking error for joint 1: %.4f radians\n', mean_error_1);
-fprintf('Mean tracking error for joint 2: %.4f radians\n', mean_error_2);
+disp('Mean tracking error for joint 1: %.4f radians\t');
+disp(mean_error_1);
+disp('Mean tracking error for joint 2: %.4f radians\t')
+disp(mean_error_2);
+
+figure('Position', [100 100 1200 800]);
+
+% Calculate errors
+theta_error = [theta1 - qd_traj(:,1), theta2 - qd_traj(:,2)];
+
+% Calculate velocity errors
+theta_dot_actual = X(:,3:4);  % Extract actual velocities from state vector
+theta_dot_error = [theta_dot_actual(:,1) - qd_dot_traj(:,1), ...
+                  theta_dot_actual(:,2) - qd_dot_traj(:,2)];
+
+% Calculate torques and torque errors
+torque_actual = zeros(length(t), 2);
+torque_desired = zeros(length(t), 2);
+for i = 1:length(t)
+    q = X(i,1:2)';
+    q_dot = X(i,3:4)';
+    [qd_temp, qd_dot_temp] = desired_trajectory(t(i));
+    
+    % Calculate actual torque
+    [tau, k1_adapted, k2_adapted] = adaptive_pd_controller(q, q_dot, qd_temp, qd_dot_temp, k1, k2, adaptation_rate);
+    torque_actual(i,:) = tau';
+    
+    % Calculate desired torque (using desired trajectory)
+    [tau_d, ~, ~] = adaptive_pd_controller(qd_temp, qd_dot_temp, qd_temp, qd_dot_temp, k1, k2, adaptation_rate);
+    torque_desired(i,:) = tau_d';
+end
+torque_error = torque_actual - torque_desired;
+
+% Position error plots
+subplot(3,2,1);
+plot(t, theta_error(:,1), 'b-', 'LineWidth', 1);
+grid on;
+title('Joint 1 Position Error');
+xlabel('Time (s)');
+ylabel('\theta_1 Error (rad)');
+
+subplot(3,2,2);
+plot(t, theta_error(:,2), 'b-', 'LineWidth', 1);
+grid on;
+title('Joint 2 Position Error');
+xlabel('Time (s)');
+ylabel('\theta_2 Error (rad)');
+
+% Velocity error plots
+subplot(3,2,3);
+plot(t, theta_dot_error(:,1), 'r-', 'LineWidth', 1);
+grid on;
+title('Joint 1 Velocity Error');
+xlabel('Time (s)');
+ylabel('\theta_1_{dot} Error (rad/s)');
+
+subplot(3,2,4);
+plot(t, theta_dot_error(:,2), 'r-', 'LineWidth', 1);
+grid on;
+title('Joint 2 Velocity Error');
+xlabel('Time (s)');
+ylabel('\theta_2_{dot} Error (rad/s)');
+
+% Torque error plots
+subplot(3,2,5);
+plot(t, torque_error(:,1), 'g-', 'LineWidth', 1);
+grid on;
+title('Joint 1 Torque Error');
+xlabel('Time (s)');
+ylabel('\tau_1 Error (N⋅m)');
+
+subplot(3,2,6);
+plot(t, torque_error(:,2), 'g-', 'LineWidth', 1);
+grid on;
+title('Joint 2 Torque Error');
+xlabel('Time (s)');
+ylabel('\tau_2 Error (N⋅m)');
