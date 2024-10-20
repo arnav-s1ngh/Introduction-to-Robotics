@@ -1,125 +1,64 @@
-% 2-DOF Robot Arm Simulation with 2D Visualization
-clear;
-clc;
+% Robotics Assignment-1
 
 % System Parameters
-m1 = 1; m2 = 1;  % masses
-a1 = 1; a2 = 1;  % link lengths
-g = 10;          % gravity
+m1=1; 
+m2=1;  
+a1=1; 
+a2=1; 
+g=10;          
+k1=1; 
+k2=1;  
+learning_rate=200000; % a value above 90k gives a decent overall result
 
-% Control gains (increased for better tracking)
-k1 = 1; k2 = 1;  % Increased from 1 to improve tracking performance
-adaptation_rate = 200000;
+%Duration
+start=0;
+stop=10;
+step=0.01;
+t=start:step:stop;
 
-% Time settings
-t_span = [0 10];
-dt = 0.01;
-t = t_span(1):dt:t_span(2);
-
-% Initial conditions [θ1 θ2 θ1_dot θ2_dot]
-x0 = [0 0 0 0];
-
-% Mass Matrix M(q)
-function M = mass_matrix(q, params)
-    m1 = params.m1; m2 = params.m2;
-    a1 = params.a1; a2 = params.a2;
-    
-    M = [(m1+m2)*a1^2 + m2*a2^2 + 2*m2*a1*a2*cos(q(2)), m2*a2^2 + m2*a1*a2*cos(q(2));
-         m2*a2^2 + m2*a1*a2*cos(q(2)), m2*a2^2];
-end
-
-% Velocity terms V(q,q_dot)
-function V = velocity_terms(q, q_dot, params)
-    m2 = params.m2;
-    a1 = params.a1; a2 = params.a2;
-    
-    V = [-m2*a1*a2*sin(q(2))*(2*q_dot(1)*q_dot(2) + q_dot(2)^2);
-         m2*a1*a2*q_dot(1)^2*sin(q(2))];
-end
-
-% Gravity terms G(q)
-function G = gravity_terms(q, params)
-    m1 = params.m1; m2 = params.m2;
-    a1 = params.a1; a2 = params.a2;
-    g = params.g;
-    
-    G = [(m1+m2)*g*a1*cos(q(1)) + m2*g*a2*cos(q(1)+q(2));
-         m2*g*a2*cos(q(1)+q(2))];
-end
-
-% Desired trajectory generator
-function [qd, qd_dot] = desired_trajectory(t)
-    qd = [pi/3; pi/4];
-    qd_dot = [0; 0];
+% Trajectory
+x0=[0,0,0,0];
+function [qd,vd]=desired_trajectory(t)
+    qd=[pi/3;pi/4];
+    vd=[0;0];
+    %qd=[pi/4*(sin(t));pi/5*cost(t)];
+    %vd=[pi/4*(cos(t));pi/5*(-1)*(sin(t))]
 end
 
 % Adaptive PD Controller
-function [tau, k1_adapted, k2_adapted] = adaptive_pd_controller(q, q_dot, qd, qd_dot, k1, k2, adaptation_rate)
-    e = q - qd;
-    e_dot = q_dot - qd_dot;
-    
-    % Adapt gains based on tracking error
-    k1_adapted = k1 + adaptation_rate * (e' * e);
-    k2_adapted = k2 + adaptation_rate * (e_dot' * e_dot);
-    
-    tau = -k1_adapted*e - k2_adapted*e_dot;
+function [tau,k1, k2]=adaptive_pd_controller(q,v,qd,vd,k1,k2,learning_rate)
+    e=q-qd;
+    e_v=v-vd;
+    k1=k1+learning_rate*(e'*e);
+    k2=k2+learning_rate*(e_v'*e_v);
+    tau=-k1*e-k2*e_v;
 end
 
-% System dynamics
-function dx = dynamics(t, x, params, k1, k2, adaptation_rate)
-    q = x(1:2);
-    q_dot = x(3:4);
-    
-    % Get desired trajectory
-    [qd, qd_dot] = desired_trajectory(t);
-    
-    % Calculate control input
-    [tau, ~, ~] = adaptive_pd_controller(q, q_dot, qd, qd_dot, k1, k2, adaptation_rate);
-    
-    % Calculate dynamic terms
-    M = mass_matrix(q, params);
-    V = velocity_terms(q, q_dot, params);
-    G = gravity_terms(q, params);
-    
-    % Solve for accelerations
-    q_ddot = M \ (tau - V - G);
-    
-    dx = [q_dot; q_ddot];
+% System motion
+function dyn=motion(t,x,m1,m2,a1,a2,g,k1,k2,learning_rate)
+    q=x(1:2);
+    v=x(3:4);
+    [qd,vd]=desired_trajectory(t);
+    [tau,~,~]=adaptive_pd_controller(q,v,qd,vd,k1,k2,learning_rate);
+    M=[(m1+m2)*a1^2+m2*a2^2+2*m2*a1*a2*cos(q(2)),m2*a2^2+m2*a1*a2*cos(q(2));m2*a2^2+m2*a1*a2*cos(q(2)),m2*a2^2];
+    V=[-m2*a1*a2*sin(q(2))*(2*v(1)*v(2)+v(2)^2);m2*a1*a2*v(1)^2*sin(q(2))];
+    G=[(m1+m2)*g*a1*cos(q(1))+m2*g*a2*cos(q(1)+q(2));m2*g*a2*cos(q(1)+q(2))];
+    a=M\(tau-V-G);
+    dyn=[v;a];
 end
 
-% Forward Kinematics
-function [x, y] = forward_kinematics(theta1, theta2, a1, a2)
-    % End of first link
-    x1 = a1 * cos(theta1);
-    y1 = a1 * sin(theta1);
-    
-    % End of second link
-    x2 = x1 + a2 * cos(theta1 + theta2);
-    y2 = y1 + a2 * sin(theta1 + theta2);
-    
-    x = [0, x1, x2];
-    y = [0, y1, y2];
-end
-
-% Simulation parameters
-params.m1 = m1; params.m2 = m2;
-params.a1 = a1; params.a2 = a2;
-params.g = g;
-
-% Simulate system
-[t, X] = ode45(@(t,x) dynamics(t, x, params, k1, k2, adaptation_rate), t, x0);
-
-% Extract results
-theta1 = X(:,1);
-theta2 = X(:,2);
+% DE Solver
+[t,X]=ode45(@(t,x) motion(t,x,m1,m2,a1,a2,g,k1,k2,learning_rate),t,x0);
+theta1=X(:,1);
+theta2=X(:,2);
 
 % Calculate desired trajectory for plotting
-qd_traj = zeros(length(t), 2);
-qd_dot_traj = zeros(length(t), 2);
+qd_traj=zeros(length(t),2);
+vd_traj=zeros(length(t),2);
 for i = 1:length(t)
-    [qd_temp, qd_dot_temp] = desired_trajectory(t(i));
+    [qd_temp, vd_temp] = desired_trajectory(t(i));
     qd_traj(i,:) = qd_temp';
-    qd_dot_traj(i,:) = qd_dot_temp';
+    vd_traj(i,:) = vd_temp';
 end
 
 % Create animation
@@ -131,11 +70,21 @@ ee_y = zeros(length(t), 1);
 ee_x_desired = zeros(length(t), 1);
 ee_y_desired = zeros(length(t), 1);
 
+% Forward Kinematics
+function [x,y]=fk(theta1, theta2, a1, a2)
+    x1=a1*cos(theta1);
+    y1=a1*sin(theta1);
+    x2=x1+a2*cos(theta1+theta2);
+    y2=y1+a2*sin(theta1+theta2);
+    x=[0,x1,x2];
+    y=[0,y1,y2];
+end
+
 % Animation
 for i = 1:10:length(t)
     % Calculate current positions
-    [x, y] = forward_kinematics(theta1(i), theta2(i), a1, a2);
-    [xd, yd] = forward_kinematics(qd_traj(i,1), qd_traj(i,2), a1, a2);
+    [x, y] = fk(theta1(i), theta2(i), a1, a2);
+    [xd, yd] = fk(qd_traj(i,1), qd_traj(i,2), a1, a2);
     
     % Store end-effector positions
     ee_x(i) = x(3);
@@ -199,23 +148,23 @@ theta_error = [theta1 - qd_traj(:,1), theta2 - qd_traj(:,2)];
 
 % Calculate velocity errors
 theta_dot_actual = X(:,3:4);  % Extract actual velocities from state vector
-theta_dot_error = [theta_dot_actual(:,1) - qd_dot_traj(:,1), ...
-                  theta_dot_actual(:,2) - qd_dot_traj(:,2)];
+theta_dot_error = [theta_dot_actual(:,1) - vd_traj(:,1), ...
+                  theta_dot_actual(:,2) - vd_traj(:,2)];
 
 % Calculate torques and torque errors
 torque_actual = zeros(length(t), 2);
 torque_desired = zeros(length(t), 2);
 for i = 1:length(t)
     q = X(i,1:2)';
-    q_dot = X(i,3:4)';
-    [qd_temp, qd_dot_temp] = desired_trajectory(t(i));
+    v = X(i,3:4)';
+    [qd_temp, vd_temp] = desired_trajectory(t(i));
     
     % Calculate actual torque
-    [tau, k1_adapted, k2_adapted] = adaptive_pd_controller(q, q_dot, qd_temp, qd_dot_temp, k1, k2, adaptation_rate);
+    [tau, k1_adapted, k2_adapted] = adaptive_pd_controller(q, v, qd_temp, vd_temp, k1, k2, learning_rate);
     torque_actual(i,:) = tau';
     
     % Calculate desired torque (using desired trajectory)
-    [tau_d, ~, ~] = adaptive_pd_controller(qd_temp, qd_dot_temp, qd_temp, qd_dot_temp, k1, k2, adaptation_rate);
+    [tau_d, ~, ~] = adaptive_pd_controller(qd_temp, vd_temp, qd_temp, vd_temp, k1, k2, learning_rate);
     torque_desired(i,:) = tau_d';
 end
 torque_error = torque_actual - torque_desired;
