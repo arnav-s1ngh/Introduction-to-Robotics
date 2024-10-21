@@ -22,7 +22,7 @@ function [qd,vd]=desired_trajectory(t)
     %qd=[pi/3;pi/4];
     %vd=[0;0];
     qd=[pi/4*(sin(t));pi/5*cos(t)];
-    vd=[pi/4*(cos(t));pi/5*(-1)*(sin(t))]
+    vd=[pi/4*(cos(t));pi/5*(-1)*(sin(t))];
 end
 
 % Adaptive PD Controller
@@ -175,6 +175,6 @@ ylabel('Torque');
 
 subplot(3,2,6);
 plot(t, torque_act(:,2));
-title('Joint 2 Torque Error');
+title('Joint 2');
 xlabel('Time');
 ylabel('Torque');
