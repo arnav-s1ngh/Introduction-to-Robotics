@@ -13,7 +13,7 @@ learning_rate=200000; % a value above 90k gives a decent overall result
 %Duration
 start=0;
 stop=10;
-step=0.05;
+step=0.01;
 t=start:step:stop;
 
 % Trajectory
