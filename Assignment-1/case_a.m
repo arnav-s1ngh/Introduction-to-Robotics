@@ -44,7 +44,7 @@ function dyn=motion(t,x,m1,m2,a1,a2,g,k1,k2,learning_rate)
     [qd,vd]=desired_trajectory(t);
     [tau,~,~]=adaptive_pd_controller(q,v,qd,vd,k1,k2,learning_rate);
     M=[(m1+m2)*a1^2+m2*a2^2+2*m2*a1*a2*cos(q(2)),m2*a2^2+m2*a1*a2*cos(q(2));m2*a2^2+m2*a1*a2*cos(q(2)),m2*a2^2];
-    V=[-m2*a1*a2*sin(q(2))*(2*v(1)*v(2)+v(2)^2);m2*a1*a2*v(1)^2*sin(q(2))];
+    V=[-m2*a1*a2*(2*v(1)*v(2)+v(2)^2)*sin(q(2));m2*a1*a2*v(1)^2*sin(q(2))];
     G=[(m1+m2)*g*a1*cos(q(1))+m2*g*a2*cos(q(1)+q(2));m2*g*a2*cos(q(1)+q(2))];
     a=M\(tau-V-G); %Ma+V+G=tau
     dyn=[v;a];
