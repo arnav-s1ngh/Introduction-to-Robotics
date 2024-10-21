@@ -108,7 +108,7 @@ for i=1:10:length(t)
     
     % Joint 1 angle
     subplot(1,3,2);
-    plot(t(1:i),q1(1:i),'b-',t(1:i),qd_pos(1:i,1),'g');
+    plot(t(1:i),q1(1:i),'b',t(1:i),qd_pos(1:i,1),'g');
     axis([0,10,0,3,0,10]);
     title('Joint 1 Angle');
     xlabel('Time (s)');
@@ -117,7 +117,7 @@ for i=1:10:length(t)
     
     % Joint 2 angle
     subplot(1,3,3);
-    plot(t(1:i),q2(1:i),'b-',t(1:i),qd_pos(1:i,2),'g--');
+    plot(t(1:i),q2(1:i),'b',t(1:i),qd_pos(1:i,2),'g');
     axis([0,10,0,3,0,10]);
     title('Joint 2 Angle');
     xlabel('Time (s)');
