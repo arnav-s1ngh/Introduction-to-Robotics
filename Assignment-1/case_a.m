@@ -21,7 +21,7 @@ x0=[0,0,0,0];
 function [qd,vd]=desired_trajectory(t)
     qd=[pi/3;pi/4];
     vd=[0;0];
-    %qd=[pi/4*(sin(t));pi/5*cost(t)];
+    %qd=[pi/4*(sin(t));pi/5*cos(t)];
     %vd=[pi/4*(cos(t));pi/5*(-1)*(sin(t))]
 end
 
