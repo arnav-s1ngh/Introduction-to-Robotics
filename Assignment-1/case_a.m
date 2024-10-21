@@ -176,6 +176,6 @@ ylabel('Torque');
 
 subplot(3,2,6);
 plot(t, torque_act(:,2));
-title('Joint 2 Torque Error');
+title('Joint 2');
 xlabel('Time');
 ylabel('Torque');
