@@ -1,57 +1,73 @@
 #include <AFMotor.h>
 
 // Pin definitions
-#define lefts A0
-#define rights A1
+#define lefts A1
+#define center A2
+#define rights A0
 
-// Motor definitions
+// Motors
+//Right
 AF_DCMotor motor1(1, MOTOR12_1KHZ); 
 AF_DCMotor motor2(2, MOTOR12_1KHZ);
+//Left
 AF_DCMotor motor3(3, MOTOR34_1KHZ);
 AF_DCMotor motor4(4, MOTOR34_1KHZ);
 
-// Motor speed constants
-const int NORMAL_SPEED = 255;  // Normal running speed
-const int TURN_SPEED = 255;    // Speed during correction
+// Motor speed 
+const int speed = 255;
 
 void setup() {
-  // Initialize sensor pins
+  // Set up sensor pins as inputs
   pinMode(lefts, INPUT);
+  pinMode(center, INPUT);
   pinMode(rights, INPUT);
   
-  // Initialize serial for debugging
-  Serial.begin(9600);
+  // Set initial motor speeds
+  motor1.setSpeed(speed);
+  motor2.setSpeed(speed);
+  motor3.setSpeed(speed);
+  motor4.setSpeed(speed);
+  
+  // Start by finding the line if not on it
+  while(digitalRead(center) == 0) {  // While center sensor sees light
+    // Move forward until line is found
+    motor1.run(FORWARD);
+    motor2.run(FORWARD);
+    motor3.run(FORWARD);
+    motor4.run(FORWARD);
+  }
+  
+  // Stop once line is found
+  stopMotors();
 }
 
 void loop() {
-  // Read sensors (0 is light, 1 is dark)
-  int leftSensor = digitalRead(lefts);
-  int rightSensor = digitalRead(rights);
+  // Read sensor values
+  int leftVal = digitalRead(lefts);
+  int centerVal = digitalRead(center);
+  int rightVal = digitalRead(rights);
   
-  // Both sensors on light surface - stop
-  if (leftSensor == 0 && rightSensor == 0) {
-    stopRobot();
+  // Line following logic
+  if (centerVal == 1) {
+    // On the line, move forward
+    moveForward();
   }
-  // Left sensor on dark line - correct left
-  else if (leftSensor == 1 && rightSensor == 0) {
+  else if (leftVal == 1) {
+    // Line is to the left, turn left
     turnLeft();
   }
-  // Right sensor on dark line - correct right
-  else if (leftSensor == 0 && rightSensor == 1) {
+  else if (rightVal == 1) {
+    // Line is to the right, turn right
     turnRight();
   }
-  // Both sensors on dark line - move forward
-  else if (leftSensor == 1 && rightSensor == 1) {
-    moveForward();
+  else {
+    // No line detected, stop
+    stopMotors();
   }
 }
 
+// Motor control functions
 void moveForward() {
-  motor1.setSpeed(NORMAL_SPEED);
-  motor2.setSpeed(NORMAL_SPEED);
-  motor3.setSpeed(NORMAL_SPEED);
-  motor4.setSpeed(NORMAL_SPEED);
-  
   motor1.run(FORWARD);
   motor2.run(FORWARD);
   motor3.run(FORWARD);
@@ -59,32 +75,23 @@ void moveForward() {
 }
 
 void turnLeft() {
-  motor1.setSpeed(NORMAL_SPEED);
-  motor2.setSpeed(NORMAL_SPEED);
-  motor3.setSpeed(TURN_SPEED);
-  motor4.setSpeed(TURN_SPEED);
-  
-  motor1.run(RELEASE);
-  motor2.run(RELEASE);
-  motor3.run(FORWARD);
-  motor4.run(FORWARD);
-}
-
-void turnRight() {
-  motor1.setSpeed(TURN_SPEED);
-  motor2.setSpeed(TURN_SPEED);
-  motor3.setSpeed(NORMAL_SPEED);
-  motor4.setSpeed(NORMAL_SPEED);
-  
   motor1.run(FORWARD);
   motor2.run(FORWARD);
   motor3.run(RELEASE);
   motor4.run(RELEASE);
 }
 
-void stopRobot() {
+void turnRight() {
+  motor1.run(RELEASE);
+  motor2.run(RELEASE);
+  motor3.run(FORWARD);
+  motor4.run(FORWARD);
+}
+
+void stopMotors() {
   motor1.run(RELEASE);
   motor2.run(RELEASE);
   motor3.run(RELEASE);
   motor4.run(RELEASE);
 }
+
