@@ -1,5 +1,5 @@
 #include <AFMotor.h>
-
+// Reference :- https://quadstore.in/wp-content/uploads/2020/07/LINE_FOLLOWING_CAR.zip
 // Pin definitions
 #define lefts A1
 #define center A2
@@ -14,81 +14,65 @@ AF_DCMotor motor3(3, MOTOR34_1KHZ);
 AF_DCMotor motor4(4, MOTOR34_1KHZ);
 
 // Motor speed 
-const int speed = 255;
+const int speed=255;
 
 void setup() {
-  // Set up sensor pins as inputs
   pinMode(lefts, INPUT);
   pinMode(center, INPUT);
   pinMode(rights, INPUT);
-  
-  // Set initial motor speeds
   motor1.setSpeed(speed);
   motor2.setSpeed(speed);
   motor3.setSpeed(speed);
   motor4.setSpeed(speed);
-  
-  // Start by finding the line if not on it
-  while(digitalRead(center) == 0) {  // While center sensor sees light
-    // Move forward until line is found
+  while(digitalRead(center) == 0) {
     motor1.run(FORWARD);
     motor2.run(FORWARD);
     motor3.run(FORWARD);
     motor4.run(FORWARD);
   }
-  
-  // Stop once line is found
-  stopMotors();
+  haltbot();
 }
 
 void loop() {
-  // Read sensor values
-  int leftVal = digitalRead(lefts);
-  int centerVal = digitalRead(center);
-  int rightVal = digitalRead(rights);
-  
-  // Line following logic
+  int leftVal=digitalRead(lefts);
+  int centerVal=digitalRead(center);
+  int rightVal=digitalRead(rights);
   if (centerVal == 1) {
-    // On the line, move forward
-    moveForward();
+    moveforward();
   }
   else if (leftVal == 1) {
-    // Line is to the left, turn left
-    turnLeft();
+    turnleft();
   }
   else if (rightVal == 1) {
-    // Line is to the right, turn right
-    turnRight();
+    turnright();
   }
   else {
-    // No line detected, stop
-    stopMotors();
+    haltbot();
   }
 }
 
-// Motor control functions
-void moveForward() {
+void moveforward() {
   motor1.run(FORWARD);
   motor2.run(FORWARD);
   motor3.run(FORWARD);
   motor4.run(FORWARD);
 }
 
-void turnLeft() {
+void turnleft() {
   motor1.run(FORWARD);
   motor2.run(FORWARD);
   motor3.run(RELEASE);
   motor4.run(RELEASE);
 }
 
-void turnRight() {
+void turnright() {
   motor1.run(RELEASE);
   motor2.run(RELEASE);
   motor3.run(FORWARD);
   motor4.run(FORWARD);
 }
 
-void stopMotors() {
+void haltbot() {
   motor1.run(RELEASE);
   motor2.run(RELEASE);
   motor3.run(RELEASE);
