@@ -8,19 +8,19 @@
 
 // Motors
 //Right
-AF_DCMotor motor1(1, MOTOR12_1KHZ); 
-AF_DCMotor motor2(2, MOTOR12_1KHZ);
+AF_DCMotor motor1(1,MOTOR12_1KHZ); 
+AF_DCMotor motor2(2,MOTOR12_1KHZ);
 //Left
-AF_DCMotor motor3(3, MOTOR34_1KHZ);
-AF_DCMotor motor4(4, MOTOR34_1KHZ);
+AF_DCMotor motor3(3,MOTOR34_1KHZ);
+AF_DCMotor motor4(4,MOTOR34_1KHZ);
 
 // Motor speed 
 const int speed=255;
 
 void setup() {
-  pinMode(lefts, INPUT);
-  pinMode(center, INPUT);
-  pinMode(rights, INPUT);
+  pinMode(lefts,INPUT);
+  pinMode(center,INPUT);
+  pinMode(rights,INPUT);
   motor1.setSpeed(speed);
   motor2.setSpeed(speed);
   motor3.setSpeed(speed);
