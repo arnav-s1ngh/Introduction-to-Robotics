@@ -1,4 +1,4 @@
-// Demo-1 :- Straight Line Path can be traversed easily without PID
+// Can successfully traverse sinusoidal, circular and straight line path at a constant speed.
 #include <AFMotor.h>
 // Reference :- https://quadstore.in/wp-content/uploads/2020/07/LINE_FOLLOWING_CAR.zip
 // Pin definitions
