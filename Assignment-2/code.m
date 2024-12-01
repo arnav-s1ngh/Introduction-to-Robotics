@@ -36,13 +36,19 @@ for i=1:length(dur)
     x=x+v*cos(theta)*dt;
     y=y+v*sin(theta)*dt;
     alpha=atan2(dy,dx)-theta;
-    % The first formula is for a unicycle with wheel radius=1, while the
-    % second is for a point object, that i found on the internet
-    % phi=atan(2*(1/ld)*sin(alpha));
-    % using this formula for phi since it gives a good result
-    phi=2*v/ld*sin(alpha)*dt;
+    %formula for a unicycle with wheel radius=0.001
+    phi=atan(2*(0.001/ld)*sin(alpha));
     theta=theta+phi; 
 end
+
+
+figure;
+plot(dur,xpath,"b-");
+hold on;
+plot(dur,ypath,"g-")
+title("X&Y-vs-t");
+xlabel("T");
+ylabel("X");
 
 figure;
 plot(dur,errorpath,"b-");
