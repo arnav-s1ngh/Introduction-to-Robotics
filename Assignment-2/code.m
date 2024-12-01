@@ -53,8 +53,8 @@ ylabel("X");
 figure;
 plot(dur,errorpath,"b-");
 title("e-vs-t");
-xlabel("Error");
-ylabel("Time");
+xlabel("T");
+ylabel("Error");
 
 figure;
 plot(dur,xpath,"b-");
@@ -65,7 +65,7 @@ ylabel("X");
 figure;
 plot(dur,ypath,"b-");
 title("Y-vs-t");
-xlabel("t");
+xlabel("T");
 ylabel("Y");
 
 figure;
