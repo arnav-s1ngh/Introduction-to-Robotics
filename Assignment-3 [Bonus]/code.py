@@ -4,10 +4,10 @@ from geometry_msgs.msg import Twist
 from nav_msgs.msg import Odometry
 import math
 
-class CircleController(Node):
+class PurePursuitController(Node):
     def __init__(self):
-        super().__init__('circle_controller')
-        
+        super().__init__('pure_pursuit_controller')
+
         # Publisher for velocity commands
         self.cmd_vel_pub = self.create_publisher(Twist, '/cmd_vel', 10)
 
@@ -22,6 +22,7 @@ class CircleController(Node):
         # Parameters for the circular trajectory
         self.radius = 1.0
         self.linear_velocity = 2.0
+        self.lookahead_distance = 0.008  # Lookahead distance
 
         # Timer to update velocity commands
         self.timer = self.create_timer(0.01, self.control_loop)  # 100 Hz
@@ -48,28 +49,26 @@ class CircleController(Node):
             rclpy.shutdown()
             return
 
-        # Calculate radial distance to origin
+        # Calculate the current angle and radial distance
+        current_angle = math.atan2(self.current_y, self.current_x)
         radial_distance = math.sqrt(self.current_x**2 + self.current_y**2)
 
-        # Calculate the current angle in polar coordinates
-        current_angle = math.atan2(self.current_y, self.current_x)
-
-        # Target angle for pure pursuit
-        target_angle = current_angle + (self.linear_velocity / self.radius) * 0.01
-
-        # Target position on the circle
-        target_x = self.radius * math.cos(target_angle)
-        target_y = self.radius * math.sin(target_angle)
+        # Compute the lookahead target position on the circle
+        lookahead_angle = current_angle + (self.linear_velocity * 0.01) / self.radius
+        target_x = self.radius * math.cos(lookahead_angle)
+        target_y = self.radius * math.sin(lookahead_angle)
 
         # Compute errors
         dx = target_x - self.current_x
         dy = target_y - self.current_y
 
-        # Control law for a unicycle model
+        # Compute the control law for pure pursuit
         alpha = math.atan2(dy, dx) - self.current_theta
         alpha = math.atan2(math.sin(alpha), math.cos(alpha))  # Normalize alpha to [-pi, pi]
-        
-        angular_velocity = 2 * math.sin(alpha)
+        phi = math.atan(2 * (0.001 / self.lookahead_distance) * math.sin(alpha))
+
+        # Update the robot's orientation
+        angular_velocity = phi / 0.01
 
         # Publish velocity commands
         twist = Twist()
@@ -79,7 +78,7 @@ class CircleController(Node):
 
 def main(args=None):
     rclpy.init(args=args)
-    node = CircleController()
+    node = PurePursuitController()
     try:
         rclpy.spin(node)
     except KeyboardInterrupt:
@@ -90,3 +89,4 @@ def main(args=None):
 
 if __name__ == '__main__':
     main()
+
