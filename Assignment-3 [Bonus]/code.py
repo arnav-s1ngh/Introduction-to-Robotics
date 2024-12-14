@@ -1,126 +1,92 @@
-#!/usr/bin/env python
 import rclpy
 from rclpy.node import Node
-from geometry_msgs.msg import Twist, Point
-from nav_msgs.msg import Path
-from std_msgs.msg import Header
+from geometry_msgs.msg import Twist
+from nav_msgs.msg import Odometry
 import math
-import numpy as np
 
-
-class PurePursuitController(Node):
+class CircleController(Node):
     def __init__(self):
-        super().__init__('pure_pursuit_controller')
-
+        super().__init__('circle_controller')
+        
         # Publisher for velocity commands
-        self.publisher_ = self.create_publisher(Twist, '/cmd_vel', 10)
-        self.path_publisher_ = self.create_publisher(Path, '/robot_path', 10)
+        self.cmd_vel_pub = self.create_publisher(Twist, '/cmd_vel', 10)
 
-        # Parameters
+        # Subscriber for odometry
+        self.odom_sub = self.create_subscription(Odometry, '/odom', self.odom_callback, 10)
+
+        # Initialize robot's state
+        self.current_x = 0.0
+        self.current_y = 0.0
+        self.current_theta = 0.0
+
+        # Parameters for the circular trajectory
         self.radius = 1.0
-        self.v = 2.0  # linear velocity
-        self.ld = 0.008  # look-ahead distance
-        self.dt = 0.005  # time step
-        self.total_time = 15.0
+        self.linear_velocity = 2.0
 
-        # Initial pose
-        self.x = 0.0
-        self.y = 0.0
-        self.theta = 0.0
+        # Timer to update velocity commands
+        self.timer = self.create_timer(0.01, self.control_loop)  # 100 Hz
 
-        # For tracking
-        self.xpath = []
-        self.ypath = []
-        self.thetapath = []
-        self.errorpath = []
+        # Timer for 15-second duration
+        self.start_time = self.get_clock().now()
 
-        # Timer for control loop
-        self.timer = self.create_timer(self.dt, self.control_loop)
-
-        # Stop flag
-        self.stop_flag = False
+    def odom_callback(self, msg):
+        # Extract current position and orientation from odometry
+        self.current_x = msg.pose.pose.position.x
+        self.current_y = msg.pose.pose.position.y
+        orientation_q = msg.pose.pose.orientation
+        siny_cosp = 2 * (orientation_q.w * orientation_q.z + orientation_q.x * orientation_q.y)
+        cosy_cosp = 1 - 2 * (orientation_q.y**2 + orientation_q.z**2)
+        self.current_theta = math.atan2(siny_cosp, cosy_cosp)
 
     def control_loop(self):
-        # Store current state
-        self.xpath.append(self.x)
-        self.ypath.append(self.y)
-        self.thetapath.append(self.theta % (2 * math.pi))
+        # Stop after 15 seconds
+        elapsed_time = (self.get_clock().now() - self.start_time).nanoseconds * 1e-9
+        if elapsed_time > 15.0:
+            twist = Twist()
+            self.cmd_vel_pub.publish(twist)  # Stop the robot
+            self.get_logger().info("15 seconds elapsed. Stopping the robot.")
+            rclpy.shutdown()
+            return
 
-        # Calculate radial error
-        current_radius = math.sqrt(self.x ** 2 + self.y ** 2)
-        error = abs(current_radius - self.radius)
-        self.errorpath.append(error)
+        # Calculate radial distance to origin
+        radial_distance = math.sqrt(self.current_x**2 + self.current_y**2)
 
-        # Publish current path
-        self.publish_path()
+        # Calculate the current angle in polar coordinates
+        current_angle = math.atan2(self.current_y, self.current_x)
 
-        # Calculate look-ahead point
-        current_angle = math.atan2(self.y, self.x)
-        ld_angle = current_angle + self.v * self.dt / self.radius
+        # Target angle for pure pursuit
+        target_angle = current_angle + (self.linear_velocity / self.radius) * 0.01
 
-        x_ahead = self.radius * math.cos(ld_angle)
-        y_ahead = self.radius * math.sin(ld_angle)
+        # Target position on the circle
+        target_x = self.radius * math.cos(target_angle)
+        target_y = self.radius * math.sin(target_angle)
 
-        # Calculate control inputs
-        dx = x_ahead - self.x
-        dy = y_ahead - self.y
+        # Compute errors
+        dx = target_x - self.current_x
+        dy = target_y - self.current_y
 
-        # Update position
-        self.x += self.v * math.cos(self.theta) * self.dt
-        self.y += self.v * math.sin(self.theta) * self.dt
+        # Control law for a unicycle model
+        alpha = math.atan2(dy, dx) - self.current_theta
+        alpha = math.atan2(math.sin(alpha), math.cos(alpha))  # Normalize alpha to [-pi, pi]
+        
+        angular_velocity = 2 * math.sin(alpha)
 
-        # Calculate steering angle
-        alpha = math.atan2(dy, dx) - self.theta
-
-        # Unicycle model steering
-        wheel_radius = 0.001
-        phi = math.atan(2 * (wheel_radius / self.ld) * math.sin(alpha))
-
-        # Update heading
-        self.theta += phi
-
-        # Publish velocity command
+        # Publish velocity commands
         twist = Twist()
-        twist.linear.x = self.v
-        twist.angular.z = phi
-        self.publisher_.publish(twist)
-
-        # Stop condition
-        if len(self.xpath) >= self.total_time / self.dt:
-            self.stop_flag = True
-            self.stop_robot()
-
-    def publish_path(self):
-        path_msg = Path()
-        path_msg.header.frame_id = 'map'
-        path_msg.header.stamp = self.get_clock().now().to_msg()
-
-        for x, y in zip(self.xpath, self.ypath):
-            pose = Point()
-            pose.x = x
-            pose.y = y
-            path_msg.poses.append(pose)
-
-        self.path_publisher_.publish(path_msg)
-
-    def stop_robot(self):
-        twist = Twist()
-        twist.linear.x = 0.0
-        twist.angular.z = 0.0
-        self.publisher_.publish(twist)
-
-
+        twist.linear.x = self.linear_velocity
+        twist.angular.z = angular_velocity
+        self.cmd_vel_pub.publish(twist)
 
 def main(args=None):
     rclpy.init(args=args)
-    pure_pursuit_controller=PurePursuitController()
+    node = CircleController()
     try:
-        while rclpy.ok() and not pure_pursuit_controller.stop_flag:
-            rclpy.spin_once(pure_pursuit_controller)
+        rclpy.spin(node)
     except KeyboardInterrupt:
         pass
     finally:
-        pure_pursuit_controller.destroy_node()
+        node.destroy_node()
         rclpy.shutdown()
+
 if __name__ == '__main__':
     main()
