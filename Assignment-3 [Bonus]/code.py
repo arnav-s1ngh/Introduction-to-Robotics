@@ -21,6 +21,7 @@ class CircleTrackingController(Node):
         self.radius = 1.0  # Circle radius (meters)
         self.linear_velocity = 2.0  # Linear velocity (m/s)
         self.pose = None
+        self.theta = 0.0  # Angle along the circle (radians)
         self.timer_period = 0.01  # Time step (seconds)
         self.start_time = self.get_clock().now()
 
@@ -35,18 +36,8 @@ class CircleTrackingController(Node):
         """Convert quaternion to Euler angles (roll, pitch, yaw)."""
         t0 = +2.0 * (w * x + y * z)
         t1 = +1.0 - 2.0 * (x * x + y * y)
-        roll = atan2(t0, t1)
-
-        t2 = +2.0 * (w * y - z * x)
-        t2 = +1.0 if t2 > +1.0 else t2
-        t2 = -1.0 if t2 < -1.0 else t2
-        pitch = sin(t2)
-
-        t3 = +2.0 * (w * z + x * y)
-        t4 = +1.0 - 2.0 * (y * y + z * z)
-        yaw = atan2(t3, t4)
-
-        return roll, pitch, yaw
+        yaw = atan2(t0, t1)
+        return yaw
 
     def control_loop(self):
         if self.pose is None:
@@ -56,18 +47,18 @@ class CircleTrackingController(Node):
         x = self.pose.position.x
         y = self.pose.position.y
         orientation_q = self.pose.orientation
-        _, _, theta = self.quaternion_to_euler(orientation_q.x, orientation_q.y, orientation_q.z, orientation_q.w)
+        theta_robot = self.quaternion_to_euler(orientation_q.x, orientation_q.y, orientation_q.z, orientation_q.w)
 
-        # Calculate the target point on the circle
-        target_x = self.radius * cos(self.linear_velocity * self.timer_period / self.radius)
-        target_y = self.radius * sin(self.linear_velocity * self.timer_period / self.radius)
+        # Update the target point along the circle dynamically
+        self.theta += self.linear_velocity * self.timer_period / self.radius
+        target_x = self.radius * cos(self.theta)
+        target_y = self.radius * sin(self.theta)
 
         # Calculate error and desired angle
         dx = target_x - x
         dy = target_y - y
-        distance_error = sqrt(dx**2 + dy**2)
         desired_angle = atan2(dy, dx)
-        angle_error = desired_angle - theta
+        angle_error = desired_angle - theta_robot
 
         # Normalize angle error to [-pi, pi]
         angle_error = (angle_error + pi) % (2 * pi) - pi
@@ -102,5 +93,6 @@ def main(args=None):
 
 if __name__ == '__main__':
     main()
+
 
 
