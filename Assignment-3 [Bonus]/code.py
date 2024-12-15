@@ -21,7 +21,6 @@ class CircleTrackingController(Node):
         self.radius = 1.0  # Circle radius (meters)
         self.linear_velocity = 2.0  # Linear velocity (m/s)
         self.pose = None
-        self.theta = 0.0  # Angle along the circle (radians)
         self.timer_period = 0.01  # Time step (seconds)
         self.start_time = self.get_clock().now()
 
@@ -33,9 +32,9 @@ class CircleTrackingController(Node):
         self.pose = msg.pose.pose
 
     def quaternion_to_euler(self, x, y, z, w):
-        """Convert quaternion to Euler angles (roll, pitch, yaw)."""
-        t0 = +2.0 * (w * x + y * z)
-        t1 = +1.0 - 2.0 * (x * x + y * y)
+        """Convert quaternion to Euler angles (yaw only)."""
+        t0 = +2.0 * (w * z + x * y)
+        t1 = +1.0 - 2.0 * (y * y + z * z)
         yaw = atan2(t0, t1)
         return yaw
 
@@ -49,14 +48,17 @@ class CircleTrackingController(Node):
         orientation_q = self.pose.orientation
         theta_robot = self.quaternion_to_euler(orientation_q.x, orientation_q.y, orientation_q.z, orientation_q.w)
 
-        # Update the target point along the circle dynamically
-        self.theta += self.linear_velocity * self.timer_period / self.radius
-        target_x = self.radius * cos(self.theta)
-        target_y = self.radius * sin(self.theta)
+        # Calculate the current angle along the circle from the robot's position
+        target_theta = atan2(y, x)
 
-        # Calculate error and desired angle
+        # Calculate the desired position on the circle
+        target_x = self.radius * cos(target_theta)
+        target_y = self.radius * sin(target_theta)
+
+        # Calculate errors
         dx = target_x - x
         dy = target_y - y
+        distance_error = sqrt(dx**2 + dy**2)
         desired_angle = atan2(dy, dx)
         angle_error = desired_angle - theta_robot
 
@@ -66,7 +68,12 @@ class CircleTrackingController(Node):
         # Publish control commands
         twist_msg = Twist()
         twist_msg.linear.x = self.linear_velocity
-        twist_msg.angular.z = 2.0 * angle_error  # Proportional controller for angular velocity
+        twist_msg.angular.z = 2.5 * angle_error  # Proportional controller for angular velocity
+
+        # If distance error is too large, reduce linear speed to correct path
+        if distance_error > 0.1:
+            twist_msg.linear.x = 1.0
+
         self.publisher.publish(twist_msg)
 
         # Stop the robot after 15 seconds
