@@ -51,7 +51,7 @@ class PurePursuitController(Node):
         self.get_logger().info('Pure Pursuit tracking completed.')
         sys.exit()
 
-rclpy.init(args=args)
+rclpy.init()
 controller=PurePursuitController()
 rclpy.spin(controller)
 controller.destroy_node()
