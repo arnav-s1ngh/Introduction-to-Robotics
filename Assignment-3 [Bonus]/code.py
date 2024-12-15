@@ -2,7 +2,6 @@ import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import Twist
 from nav_msgs.msg import Odometry
-from tf_transformations import euler_from_quaternion
 from math import atan2, sqrt, sin, cos, pi
 
 class CircleTrackingController(Node):
@@ -32,6 +31,23 @@ class CircleTrackingController(Node):
         """Callback function to update the robot's current pose."""
         self.pose = msg.pose.pose
 
+    def quaternion_to_euler(self, x, y, z, w):
+        """Convert quaternion to Euler angles (roll, pitch, yaw)."""
+        t0 = +2.0 * (w * x + y * z)
+        t1 = +1.0 - 2.0 * (x * x + y * y)
+        roll = atan2(t0, t1)
+
+        t2 = +2.0 * (w * y - z * x)
+        t2 = +1.0 if t2 > +1.0 else t2
+        t2 = -1.0 if t2 < -1.0 else t2
+        pitch = sin(t2)
+
+        t3 = +2.0 * (w * z + x * y)
+        t4 = +1.0 - 2.0 * (y * y + z * z)
+        yaw = atan2(t3, t4)
+
+        return roll, pitch, yaw
+
     def control_loop(self):
         if self.pose is None:
             return
@@ -40,8 +56,7 @@ class CircleTrackingController(Node):
         x = self.pose.position.x
         y = self.pose.position.y
         orientation_q = self.pose.orientation
-        orientation_list = [orientation_q.x, orientation_q.y, orientation_q.z, orientation_q.w]
-        _, _, theta = euler_from_quaternion(orientation_list)
+        _, _, theta = self.quaternion_to_euler(orientation_q.x, orientation_q.y, orientation_q.z, orientation_q.w)
 
         # Calculate the target point on the circle
         target_x = self.radius * cos(self.linear_velocity * self.timer_period / self.radius)
