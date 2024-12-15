@@ -2,6 +2,7 @@ import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import Twist
 from nav_msgs.msg import Odometry
+from tf_transformations import euler_from_quaternion
 from math import atan2, sqrt, sin, cos, pi
 
 class CircleTrackingController(Node):
@@ -19,7 +20,6 @@ class CircleTrackingController(Node):
 
         # Parameters
         self.radius = 1.0  # Circle radius (meters)
-        self.lookahead_distance = 0.008  # Lookahead distance
         self.linear_velocity = 2.0  # Linear velocity (m/s)
         self.pose = None
         self.timer_period = 0.01  # Time step (seconds)
@@ -39,30 +39,28 @@ class CircleTrackingController(Node):
         # Get current robot position and orientation
         x = self.pose.position.x
         y = self.pose.position.y
-        qw = self.pose.orientation.w
-        qz = self.pose.orientation.z
-        theta = 2 * atan2(qz, qw)
+        orientation_q = self.pose.orientation
+        orientation_list = [orientation_q.x, orientation_q.y, orientation_q.z, orientation_q.w]
+        _, _, theta = euler_from_quaternion(orientation_list)
 
-        # Calculate current error and the lookahead point
-        error = abs(sqrt(x ** 2 + y ** 2) - self.radius)
-        current_angle = atan2(y, x)
-        lookahead_angle = current_angle + self.linear_velocity * self.timer_period / self.radius
-        x_ahead = self.radius * cos(lookahead_angle)
-        y_ahead = self.radius * sin(lookahead_angle)
+        # Calculate the target point on the circle
+        target_x = self.radius * cos(self.linear_velocity * self.timer_period / self.radius)
+        target_y = self.radius * sin(self.linear_velocity * self.timer_period / self.radius)
 
-        # Calculate the control inputs
-        dx = x_ahead - x
-        dy = y_ahead - y
-        alpha = atan2(dy, dx) - theta
+        # Calculate error and desired angle
+        dx = target_x - x
+        dy = target_y - y
+        distance_error = sqrt(dx**2 + dy**2)
+        desired_angle = atan2(dy, dx)
+        angle_error = desired_angle - theta
 
-        # Control law for angular velocity
-        phi = atan(2 * (0.001 / self.lookahead_distance) * sin(alpha))
-        angular_velocity = phi / self.timer_period
+        # Normalize angle error to [-pi, pi]
+        angle_error = (angle_error + pi) % (2 * pi) - pi
 
         # Publish control commands
         twist_msg = Twist()
         twist_msg.linear.x = self.linear_velocity
-        twist_msg.angular.z = angular_velocity
+        twist_msg.angular.z = 2.0 * angle_error  # Proportional controller for angular velocity
         self.publisher.publish(twist_msg)
 
         # Stop the robot after 15 seconds
