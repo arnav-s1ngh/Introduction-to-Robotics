@@ -2,7 +2,7 @@ import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import Twist
 from nav_msgs.msg import Odometry
-from math import atan2, sqrt, sin, cos, pi
+from math import atan2, sin, cos, pi
 
 class CircleTrackingController(Node):
     def __init__(self):
@@ -21,8 +21,8 @@ class CircleTrackingController(Node):
         self.radius = 1.0  # Circle radius (meters)
         self.linear_velocity = 2.0  # Linear velocity (m/s)
         self.pose = None
-        self.timer_period = 0.01  # Time step (seconds)
         self.start_time = self.get_clock().now()
+        self.timer_period = 0.01  # Time step (seconds)
 
         # Timer
         self.timer = self.create_timer(self.timer_period, self.control_loop)
@@ -31,12 +31,11 @@ class CircleTrackingController(Node):
         """Callback function to update the robot's current pose."""
         self.pose = msg.pose.pose
 
-    def quaternion_to_euler(self, x, y, z, w):
-        """Convert quaternion to Euler angles (yaw only)."""
-        t0 = +2.0 * (w * z + x * y)
-        t1 = +1.0 - 2.0 * (y * y + z * z)
-        yaw = atan2(t0, t1)
-        return yaw
+    def quaternion_to_yaw(self, x, y, z, w):
+        """Convert quaternion to yaw angle."""
+        t0 = 2.0 * (w * z + x * y)
+        t1 = 1.0 - 2.0 * (y * y + z * z)
+        return atan2(t0, t1)
 
     def control_loop(self):
         if self.pose is None:
@@ -46,19 +45,22 @@ class CircleTrackingController(Node):
         x = self.pose.position.x
         y = self.pose.position.y
         orientation_q = self.pose.orientation
-        theta_robot = self.quaternion_to_euler(orientation_q.x, orientation_q.y, orientation_q.z, orientation_q.w)
+        theta_robot = self.quaternion_to_yaw(orientation_q.x, orientation_q.y, orientation_q.z, orientation_q.w)
 
-        # Calculate the current angle along the circle from the robot's position
-        target_theta = atan2(y, x)
+        # Time-based progression along the circle
+        elapsed_time = (self.get_clock().now() - self.start_time).nanoseconds / 1e9
+        if elapsed_time > 15.0:
+            self.stop_robot()
+            return
 
-        # Calculate the desired position on the circle
+        # Calculate target position on the circle based on elapsed time
+        target_theta = (self.linear_velocity * elapsed_time) / self.radius
         target_x = self.radius * cos(target_theta)
         target_y = self.radius * sin(target_theta)
 
-        # Calculate errors
+        # Calculate control errors
         dx = target_x - x
         dy = target_y - y
-        distance_error = sqrt(dx**2 + dy**2)
         desired_angle = atan2(dy, dx)
         angle_error = desired_angle - theta_robot
 
@@ -68,19 +70,9 @@ class CircleTrackingController(Node):
         # Publish control commands
         twist_msg = Twist()
         twist_msg.linear.x = self.linear_velocity
-        twist_msg.angular.z = 2.5 * angle_error  # Proportional controller for angular velocity
-
-        # If distance error is too large, reduce linear speed to correct path
-        if distance_error > 0.1:
-            twist_msg.linear.x = 1.0
+        twist_msg.angular.z = 2.0 * angle_error  # Proportional control for angular velocity
 
         self.publisher.publish(twist_msg)
-
-        # Stop the robot after 15 seconds
-        elapsed_time = self.get_clock().now() - self.start_time
-        if elapsed_time.nanoseconds / 1e9 >= 15.0:
-            self.timer.cancel()
-            self.stop_robot()
 
     def stop_robot(self):
         """Stop the robot by publishing zero velocity."""
@@ -100,6 +92,7 @@ def main(args=None):
 
 if __name__ == '__main__':
     main()
+
 
 
 
