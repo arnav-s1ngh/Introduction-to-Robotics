@@ -4,6 +4,7 @@ import math
 from math import atan, atan2, sqrt, sin, cos, pi
 from rclpy.node import Node
 from geometry_msgs.msg import Twist
+import sys
 
 class PurePursuitController(Node):
     def __init__(self):
@@ -34,7 +35,7 @@ class PurePursuitController(Node):
         self.x+=cos(self.theta)*self.dt
         self.y+=sin(self.theta)*self.dt
         alpha=atan2(dy,dx)-self.theta
-        phi=atan(2*(0.001/self.ld)*sin(alpha))
+        phi=atan(2*(0.0333333333333333333333/self.ld)*sin(alpha))
         self.theta+=phi
         twist_msg=Twist()
         twist_msg.linear.x=2.0
@@ -45,18 +46,13 @@ class PurePursuitController(Node):
         twist_msg = Twist()
         twist_msg.linear.x=0.0
         twist_msg.angular.z=0.0
-        twist_msg.linear.y=0.0
         self.pos_pub.publish(twist_msg)
         self.destroy_timer(self.control_timer)
         self.get_logger().info('Pure Pursuit tracking completed.')
+        sys.exit()
 
-def main(args=None):
-    rclpy.init(args=args)
-    controller=PurePursuitController()
-    rclpy.spin(controller)
-    controller.destroy_node()
-    rclpy.shutdown()
-
-if __name__ == '__main__':
-    main()
-
+rclpy.init(args=args)
+controller=PurePursuitController()
+rclpy.spin(controller)
+controller.destroy_node()
+rclpy.shutdown()
