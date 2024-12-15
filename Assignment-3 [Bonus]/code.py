@@ -1,98 +1,104 @@
+#!/usr/bin/env python3
 import rclpy
+import math
 from rclpy.node import Node
 from geometry_msgs.msg import Twist
 from nav_msgs.msg import Odometry
-from math import atan2, sin, cos, pi
+from tf_transformations import euler_from_quaternion
 
-class CircleTrackingController(Node):
+class PurePursuitController(Node):
     def __init__(self):
-        super().__init__('circle_tracking_controller')
-
-        # Publishers and Subscribers
-        self.publisher = self.create_publisher(Twist, '/cmd_vel', 10)
-        self.subscription = self.create_subscription(
-            Odometry,
-            '/odom',
-            self.odom_callback,
-            10
-        )
-
+        super().__init__('pure_pursuit_controller')
+        
         # Parameters
-        self.radius = 1.0  # Circle radius (meters)
-        self.linear_velocity = 2.0  # Linear velocity (m/s)
-        self.pose = None
+        self.radius = 1.0  # Circle radius
+        self.linear_velocity = 0.2  # Constant linear velocity
+        self.look_ahead_distance = 0.5
+        
+        # Publishers and Subscribers
+        self.cmd_vel_publisher = self.create_publisher(Twist, '/cmd_vel', 10)
+        self.odom_subscriber = self.create_subscription(
+            Odometry, '/odom', self.odom_callback, 10)
+        
+        # Timer for control loop
+        self.control_timer = self.create_timer(0.1, self.control_loop)
+        
+        # State variables
+        self.current_pose = None
         self.start_time = self.get_clock().now()
-        self.timer_period = 0.01  # Time step (seconds)
-
-        # Timer
-        self.timer = self.create_timer(self.timer_period, self.control_loop)
 
     def odom_callback(self, msg):
-        """Callback function to update the robot's current pose."""
-        self.pose = msg.pose.pose
+        """Update current robot pose from odometry"""
+        pose = msg.pose.pose
+        orientation = pose.orientation
+        _, _, yaw = euler_from_quaternion([
+            orientation.x, orientation.y, orientation.z, orientation.w
+        ])
+        self.current_pose = (pose.position.x, pose.position.y, yaw)
 
-    def quaternion_to_yaw(self, x, y, z, w):
-        """Convert quaternion to yaw angle."""
-        t0 = 2.0 * (w * z + x * y)
-        t1 = 1.0 - 2.0 * (y * y + z * z)
-        return atan2(t0, t1)
+    def calculate_control_command(self, current_pose):
+        """Calculate control commands for pure pursuit tracking"""
+        x, y, theta = current_pose
+
+        # Calculate current angle on the circle
+        current_angle = math.atan2(y, x)
+        
+        # Calculate look-ahead point on the circle
+        look_ahead_angle = current_angle + (self.linear_velocity * 0.1) / self.radius
+        x_ahead = self.radius * math.cos(look_ahead_angle)
+        y_ahead = self.radius * math.sin(look_ahead_angle)
+
+        # Calculate path tracking errors
+        dx = x_ahead - x
+        dy = y_ahead - y
+
+        # Calculate steering angle
+        alpha = math.atan2(dy, dx) - theta
+        
+        # Calculate angular velocity
+        omega = 2.0 * math.sin(alpha) / self.look_ahead_distance
+
+        return self.linear_velocity, omega
 
     def control_loop(self):
-        if self.pose is None:
+        """Main control loop for tracking circle path"""
+        # Check if pose is available
+        if not self.current_pose:
             return
 
-        # Get current robot position and orientation
-        x = self.pose.position.x
-        y = self.pose.position.y
-        orientation_q = self.pose.orientation
-        theta_robot = self.quaternion_to_yaw(orientation_q.x, orientation_q.y, orientation_q.z, orientation_q.w)
-
-        # Time-based progression along the circle
-        elapsed_time = (self.get_clock().now() - self.start_time).nanoseconds / 1e9
+        # Check elapsed time
+        now = self.get_clock().now()
+        elapsed_time = (now - self.start_time).nanoseconds / 1e9
+        
+        # Stop after 15 seconds
         if elapsed_time > 15.0:
             self.stop_robot()
             return
 
-        # Calculate target position on the circle based on elapsed time
-        target_theta = (self.linear_velocity * elapsed_time) / self.radius
-        target_x = self.radius * cos(target_theta)
-        target_y = self.radius * sin(target_theta)
-
-        # Calculate control errors
-        dx = target_x - x
-        dy = target_y - y
-        desired_angle = atan2(dy, dx)
-        angle_error = desired_angle - theta_robot
-
-        # Normalize angle error to [-pi, pi]
-        angle_error = (angle_error + pi) % (2 * pi) - pi
-
-        # Publish control commands
+        # Calculate and publish velocities
+        linear_vel, angular_vel = self.calculate_control_command(self.current_pose)
+        
         twist_msg = Twist()
-        twist_msg.linear.x = self.linear_velocity
-        twist_msg.angular.z = 2.0 * angle_error  # Proportional control for angular velocity
-
-        self.publisher.publish(twist_msg)
+        twist_msg.linear.x = linear_vel
+        twist_msg.angular.z = angular_vel
+        self.cmd_vel_publisher.publish(twist_msg)
 
     def stop_robot(self):
-        """Stop the robot by publishing zero velocity."""
+        """Stop the robot when tracking is complete"""
         twist_msg = Twist()
         twist_msg.linear.x = 0.0
         twist_msg.angular.z = 0.0
-        self.publisher.publish(twist_msg)
-        self.get_logger().info("Stopping the robot.")
-
+        self.cmd_vel_publisher.publish(twist_msg)
+        self.destroy_timer(self.control_timer)
+        self.get_logger().info('Pure Pursuit tracking completed.')
 
 def main(args=None):
     rclpy.init(args=args)
-    controller = CircleTrackingController()
+    controller = PurePursuitController()
     rclpy.spin(controller)
     controller.destroy_node()
     rclpy.shutdown()
 
 if __name__ == '__main__':
     main()
-
-
-
 
