@@ -4,7 +4,6 @@ import math
 from rclpy.node import Node
 from geometry_msgs.msg import Twist
 from nav_msgs.msg import Odometry
-from tf_transformations import euler_from_quaternion
 
 class PurePursuitController(Node):
     def __init__(self):
@@ -12,8 +11,8 @@ class PurePursuitController(Node):
         
         # Parameters
         self.radius = 1.0  # Circle radius
-        self.linear_velocity = 0.2  # Constant linear velocity
-        self.look_ahead_distance = 0.5
+        self.linear_velocity = 2.0  # Constant linear velocity
+        self.look_ahead_distance = 1.6  # Look-ahead distance
         
         # Publishers and Subscribers
         self.cmd_vel_publisher = self.create_publisher(Twist, '/cmd_vel', 10)
@@ -27,11 +26,34 @@ class PurePursuitController(Node):
         self.current_pose = None
         self.start_time = self.get_clock().now()
 
+    def quaternion_to_euler(self, quaternion):
+        """
+        Convert quaternion to Euler angles (yaw)
+        Manual implementation without tf_transformations
+        """
+        x, y, z, w = quaternion
+        
+        # Roll (x-axis rotation)
+        sinr_cosp = 2 * (w * x + y * z)
+        cosr_cosp = 1 - 2 * (x * x + y * y)
+        roll = math.atan2(sinr_cosp, cosr_cosp)
+        
+        # Pitch (y-axis rotation)
+        sinp = 2 * (w * y - z * x)
+        pitch = math.asin(sinp)
+        
+        # Yaw (z-axis rotation)
+        siny_cosp = 2 * (w * z + x * y)
+        cosy_cosp = 1 - 2 * (y * y + z * z)
+        yaw = math.atan2(siny_cosp, cosy_cosp)
+        
+        return roll, pitch, yaw
+
     def odom_callback(self, msg):
         """Update current robot pose from odometry"""
         pose = msg.pose.pose
         orientation = pose.orientation
-        _, _, yaw = euler_from_quaternion([
+        _, _, yaw = self.quaternion_to_euler([
             orientation.x, orientation.y, orientation.z, orientation.w
         ])
         self.current_pose = (pose.position.x, pose.position.y, yaw)
