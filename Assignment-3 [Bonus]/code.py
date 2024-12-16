@@ -25,31 +25,27 @@ class PurePursuitController(Node):
         now=self.get_clock().now()
         elapsed_time = (now - self.start_time).nanoseconds / 1e9
         if elapsed_time > 15.0:
-            self.stop_robot()
-        self.theta=atan2(self.y,self.x)
-        self.lda=self.theta+((self.v)*(self.dt)/(self.rad))
-        x_ahead=self.rad*cos(self.lda)
-        y_ahead=self.rad*sin(self.lda)
-        dx=x_ahead-self.x
-        dy=y_ahead-self.y
-        self.x+=cos(self.theta)*self.dt
-        self.y+=sin(self.theta)*self.dt
-        alpha=atan2(dy,dx)-self.theta
-        phi=atan(2*(0.0333333333333333333333/self.ld)*sin(alpha))
-        self.theta+=phi
-        twist_msg=Twist()
-        twist_msg.linear.x=2.0
-        twist_msg.angular.z=(phi/self.dt)
-        self.pos_pub.publish(twist_msg)
+        	twist_msg = Twist()
+        	twist_msg.linear.x=0.0
+        	twist_msg.angular.z=0.0
+        	self.pos_pub.publish(twist_msg)
+        else:
+        	self.theta=atan2(self.y,self.x)
+        	self.lda=self.theta+((self.v)*(self.dt)/(self.rad))
+        	x_ahead=self.rad*cos(self.lda)
+        	y_ahead=self.rad*sin(self.lda)
+        	dx=x_ahead-self.x
+        	dy=y_ahead-self.y
+        	self.x+=2*cos(self.theta)*self.dt
+        	self.y+=2*sin(self.theta)*self.dt
+        	alpha=atan2(dy,dx)-self.theta
+        	phi=atan(2*(0.0333333333333333333333/self.ld)*sin(alpha))
+        	self.theta+=phi
+        	twist_msg=Twist()
+        	twist_msg.linear.x=2.0
+        	twist_msg.angular.z=(phi/self.dt)
+        	self.pos_pub.publish(twist_msg)
 
-    def stop_robot(self):
-        twist_msg = Twist()
-        twist_msg.linear.x=0.0
-        twist_msg.angular.z=0.0
-        self.pos_pub.publish(twist_msg)
-        self.destroy_timer(self.control_timer)
-        self.get_logger().info('Pure Pursuit tracking completed.')
-        sys.exit()
 
 rclpy.init()
 controller=PurePursuitController()
