@@ -8,4 +8,4 @@ Steps to run this code:-
 
 2. Open a second terminal window and run this file after sourcing the aformentioned files again using the python3 command, and the robot should start moving.
 
-The Recording is a bit choppy since I had to record it with my phone, but as can be seen, it is iteratively reducing errors.
+The mp4 file is a bit choppy since I had to record it with my phone, but as can be clearly seen, it is iteratively reducing errors.
