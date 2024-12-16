@@ -7,3 +7,5 @@ Steps to run this code:-
 1. Create a Gazebo Empty environment with Turtlebot3, be sure to source the setup files in the ros and gazebo directories and export the TURTLEBOT 3 MODEL variable in the cmd line.
 
 2. Open a second terminal window and run this file after sourcing the aformentioned files again using the python3 command, and the robot should start moving.
+
+The Recording is a bit choppy since I had to record it with my phone, but as can be seen, it is iteratively reducing errors.
