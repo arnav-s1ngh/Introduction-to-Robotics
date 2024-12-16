@@ -1,7 +1,7 @@
 import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import Twist
-from math import atan2, sqrt, pi
+from math import atan2, sqrt, pi, cos, sin
 
 class CircleTracer(Node):
     def __init__(self):
@@ -26,8 +26,9 @@ class CircleTracer(Node):
     def control_loop(self):
         # Calculate the desired position on the circle at current time
         self.time_elapsed += self.dt
-        desired_x = self.radius * cos(self.linear_velocity * self.time_elapsed / self.radius)
-        desired_y = self.radius * sin(self.linear_velocity * self.time_elapsed / self.radius)
+        omega = self.linear_velocity / self.radius
+        desired_x = self.radius * cos(omega * self.time_elapsed)
+        desired_y = self.radius * sin(omega * self.time_elapsed)
 
         # Current bot position
         bot_x, bot_y = self.bot_position
@@ -35,7 +36,8 @@ class CircleTracer(Node):
         # Compute errors
         error_x = desired_x - bot_x
         error_y = desired_y - bot_y
-        
+        distance_error = sqrt(error_x**2 + error_y**2)
+
         # Proportional control for angular velocity
         desired_angle = atan2(error_y, error_x)
         angle_error = desired_angle - self.bot_orientation
@@ -49,7 +51,7 @@ class CircleTracer(Node):
         # Set velocity command
         cmd = Twist()
         cmd.linear.x = self.linear_velocity
-        cmd.angular.z = 2.0 * angle_error  # Gain for angular velocity
+        cmd.angular.z = 2.0 * angle_error + 0.5 * distance_error  # Adjust angular velocity with distance error
 
         # Publish the velocity command
         self.publisher.publish(cmd)
