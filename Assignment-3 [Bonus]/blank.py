@@ -10,48 +10,60 @@ class CircleTracer(Node):
         # Publisher for bot velocity
         self.publisher = self.create_publisher(Twist, '/cmd_vel', 10)
         
-        # Timer to update velocity at regular intervals
-        self.timer = self.create_timer(0.1, self.control_loop)
-        
-        # Desired trajectory
+        # Precompute the trajectory
+        self.dt = 0.1  # Time step
+        self.total_time = 15.0  # Total duration
         self.radius = 1.0
         self.linear_velocity = 2.0  # Constant linear velocity
-        
+        self.trajectory = []
+
+        omega = self.linear_velocity / self.radius
+        for t in [i * self.dt for i in range(int(self.total_time / self.dt) + 1)]:
+            x = self.radius * cos(omega * t)
+            y = self.radius * sin(omega * t)
+            self.trajectory.append((x, y))
+
         # Internal state
-        self.time_elapsed = 0.0
-        self.dt = 0.1  # Time step
+        self.current_index = 0
         self.bot_position = [0.0, 0.0]  # Starting at origin
         self.bot_orientation = 0.0  # Orientation in radians
 
     def control_loop(self):
-        # Calculate the desired position on the circle at current time
-        self.time_elapsed += self.dt
-        omega = self.linear_velocity / self.radius
-        desired_x = self.radius * cos(omega * self.time_elapsed)
-        desired_y = self.radius * sin(omega * self.time_elapsed)
+        if self.current_index >= len(self.trajectory):
+            # Stop after completing the trajectory
+            cmd = Twist()
+            cmd.linear.x = 0.0
+            cmd.angular.z = 0.0
+            self.publisher.publish(cmd)
+            self.get_logger().info("Finished tracing the circle.")
+            self.destroy_node()
+            return
+
+        # Get the current target point from the trajectory
+        target_x, target_y = self.trajectory[self.current_index]
 
         # Current bot position
         bot_x, bot_y = self.bot_position
 
-        # Compute errors
-        error_x = desired_x - bot_x
-        error_y = desired_y - bot_y
-        distance_error = sqrt(error_x**2 + error_y**2)
+        # Pure pursuit control
+        error_x = target_x - bot_x
+        error_y = target_y - bot_y
+        target_angle = atan2(error_y, error_x)
 
-        # Proportional control for angular velocity
-        desired_angle = atan2(error_y, error_x)
-        angle_error = desired_angle - self.bot_orientation
-
-        # Normalize angle error to [-pi, pi]
+        # Normalize angle error relative to bot orientation
+        angle_error = target_angle - self.bot_orientation
         while angle_error > pi:
             angle_error -= 2 * pi
         while angle_error < -pi:
             angle_error += 2 * pi
 
+        # Control law
+        angular_velocity = 2.0 * angle_error  # Proportional control for angular velocity
+
         # Set velocity command
         cmd = Twist()
         cmd.linear.x = self.linear_velocity
-        cmd.angular.z = 2.0 * angle_error + 0.5 * distance_error  # Adjust angular velocity with distance error
+        cmd.angular.z = angular_velocity
 
         # Publish the velocity command
         self.publisher.publish(cmd)
@@ -61,22 +73,19 @@ class CircleTracer(Node):
         self.bot_position[1] += self.linear_velocity * self.dt * sin(self.bot_orientation)
         self.bot_orientation += cmd.angular.z * self.dt
 
-        self.get_logger().info(f"Time: {self.time_elapsed:.2f}s, Position: {self.bot_position}, Orientation: {self.bot_orientation:.2f}")
+        # Move to the next point in the trajectory
+        self.current_index += 1
 
-        # Stop after 15 seconds
-        if self.time_elapsed >= 15.0:
-            cmd.linear.x = 0.0
-            cmd.angular.z = 0.0
-            self.publisher.publish(cmd)
-            self.get_logger().info("Finished tracing the circle.")
-            self.destroy_node()
+        self.get_logger().info(f"Index: {self.current_index}, Position: {self.bot_position}, Orientation: {self.bot_orientation:.2f}")
 
 
 def main(args=None):
     rclpy.init(args=args)
     node = CircleTracer()
-    rclpy.spin(node)
+    while rclpy.ok():
+        rclpy.spin_once(node)
     rclpy.shutdown()
 
 if __name__ == '__main__':
     main()
+
