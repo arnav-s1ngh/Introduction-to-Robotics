@@ -1,5 +1,5 @@
-**Course Project and Assignments for CSE633: Introduction to Robotics at IIIT Delhi
-**
+**Course Project and Assignments for CSE633: Introduction to Robotics at IIIT Delhi**
+
 Assignment-1: Implement a PD Controller on a Point Mass to simulate the oscillatory motion of a pendulum.
 
 Assignment-2: Implement a Pure Pursuit Controller on a Unicycle Robot to track the unit circle centered at origin.
