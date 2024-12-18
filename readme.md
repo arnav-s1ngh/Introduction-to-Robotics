@@ -4,7 +4,7 @@ Assignment-1: Implement a PD Controller on a Point Mass to simulate the oscillat
 
 Assignment-2: Implement a Pure Pursuit Controller on a Unicycle Robot to track the unit circle centered at origin.
 
-Assignment-3: Implement a Robot Controller in ROS and Gazebo to closely emulate the motion in Assignment-2. My code doesn't perfectly accomplish this.
+Assignment-3: Implement a Feedback Controller in ROS and Gazebo.
 
 Hardware Project: Build a Line Follower capable of tracking linear, sinusoidal and circular paths.
 
