@@ -1,4 +1,5 @@
-// Can successfully traverse sinusoidal, circular and straight line path at a constant speed.
+// 2-step feedback controller
+// Can successfully traverse sinusoidal, circular and straight line paths at a constant speed.
 #include <AFMotor.h>
 // Reference :- https://quadstore.in/wp-content/uploads/2020/07/LINE_FOLLOWING_CAR.zip
 // Pin definitions
